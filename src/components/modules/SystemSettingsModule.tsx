@@ -12,7 +12,7 @@ import {
 import { GlassCard } from '../common/GlassCard';
 import { Modal } from '../common/Modal';
 import { GoogleSheetsDirectIntegration } from '../common/GoogleSheetsDirectIntegration';
-import { getCollection, updateItem, syncWithGoogleSheets, getDatabase } from '../../services/db';
+import { getCollection, updateItem, syncWithGoogleSheets, getDatabase, saveDatabase } from '../../services/db';
 import { generateGoogleAppsScriptCode } from '../../services/gasExporter';
 import { useNotifications } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
@@ -32,13 +32,25 @@ export const SystemSettingsModule: React.FC = () => {
   const gasCode = generateGoogleAppsScriptCode();
 
   const handleSaveGasUrl = () => {
-    db.PENGATURAN.GasWebAppUrl = gasUrl;
+    const cleanUrl = gasUrl.trim();
+    db.PENGATURAN.GasWebAppUrl = cleanUrl;
+    saveDatabase(db);
     showToast('Pengaturan Tersimpan', 'URL Google Apps Script telah diperbarui.', 'success');
   };
 
   const handleManualSync = async () => {
+    const cleanUrl = gasUrl.trim();
+    if (!cleanUrl || !cleanUrl.startsWith('https://script.google.com/macros/s/') || cleanUrl.includes('...')) {
+      showToast(
+        'URL Belum Valid',
+        'Masukkan URL Web App Google Apps Script yang valid atau gunakan fitur Google Sheets Direct (OAuth 2.0) di atas.',
+        'warning'
+      );
+      return;
+    }
+
     setSyncing(true);
-    const res = await syncWithGoogleSheets(gasUrl);
+    const res = await syncWithGoogleSheets(cleanUrl);
     setSyncing(false);
 
     if (res.success) {

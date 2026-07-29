@@ -98,13 +98,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     let consecutiveFailures = 0;
 
-    // Periodic polling for Google Sheets sync (e.g. every 15s)
+    // Periodic polling for Google Sheets sync
     const interval = setInterval(async () => {
       const db = getDatabase();
       const gasUrl = db.PENGATURAN?.GasWebAppUrl?.trim();
 
-      // Only attempt if URL is defined, valid HTTPS, and hasn't repeatedly failed
-      if (gasUrl && gasUrl.startsWith('https://') && consecutiveFailures < 2) {
+      const isValidGasUrl =
+        gasUrl &&
+        gasUrl.startsWith('https://script.google.com/macros/s/') &&
+        !gasUrl.includes('...') &&
+        gasUrl.endsWith('/exec');
+
+      if (isValidGasUrl && consecutiveFailures < 2) {
         setIsRealtimeSyncing(true);
         const res = await syncWithGoogleSheets(gasUrl);
         setIsRealtimeSyncing(false);
@@ -116,13 +121,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           consecutiveFailures++;
           if (consecutiveFailures >= 2) {
-            setSyncMessage('Sync GAS dihentikan sementara (Endpoint tidak merespons).');
+            setSyncMessage('Sync GAS dihentikan (Endpoint tidak merespons/CORS). Gunakan Google Sheets OAuth.');
           } else {
             setSyncMessage(res.message);
           }
         }
+      } else {
+        setSyncMessage('Mode Local Direct / Google Sheets OAuth Active');
       }
-    }, 15000);
+    }, 20000);
 
     return () => clearInterval(interval);
   }, []);

@@ -664,13 +664,19 @@ export function deleteItem<T extends keyof SystemDatabase>(
 // Realtime Google Sheets Sync engine interface
 export async function syncWithGoogleSheets(gasUrl?: string): Promise<{ success: boolean; message: string }> {
   const db = getDatabase();
-  const rawUrl = gasUrl !== undefined ? gasUrl : db.PENGATURAN.GasWebAppUrl;
+  const rawUrl = gasUrl !== undefined ? gasUrl : db.PENGATURAN?.GasWebAppUrl;
   const targetUrl = (rawUrl || '').trim();
 
-  if (!targetUrl || !targetUrl.startsWith('https://')) {
+  // If no URL or not a valid deployed Google Apps Script URL format, treat as local PWA mode (success)
+  if (
+    !targetUrl ||
+    !targetUrl.startsWith('https://script.google.com/macros/s/') ||
+    targetUrl.includes('...') ||
+    !targetUrl.endsWith('/exec')
+  ) {
     return {
       success: true,
-      message: 'Mode Local Direct - Data tersinkronisasi di memori lokal PWA.',
+      message: 'Mode Local Direct / Google Sheets OAuth Active',
     };
   }
 
@@ -678,9 +684,12 @@ export async function syncWithGoogleSheets(gasUrl?: string): Promise<{ success: 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
 
+    // Use text/plain to avoid CORS preflight options request on script.google.com
     const response = await fetch(targetUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
       body: JSON.stringify({
         action: 'SYNC_ALL',
         data: db,
@@ -691,19 +700,21 @@ export async function syncWithGoogleSheets(gasUrl?: string): Promise<{ success: 
     clearTimeout(timeoutId);
 
     if (response.ok) {
-      const resData = await response.json();
+      const resData = await response.json().catch(() => null);
       if (resData && resData.database) {
         saveDatabase(resData.database);
       }
       return { success: true, message: 'Berhasil sinkronisasi dua arah dengan Google Sheets!' };
     } else {
-      return { success: false, message: `Status respon server: ${response.status} ${response.statusText}` };
+      return {
+        success: false,
+        message: `Status respon server GAS: ${response.status} ${response.statusText}`,
+      };
     }
   } catch (err: any) {
-    // Return graceful failure message without throwing noisy console warnings
     return {
       success: false,
-      message: 'Google Apps Script Endpoint tidak merespons (Check URL/CORS).',
+      message: 'Endpoint GAS tidak merespons. Gunakan Google Sheets Direct (OAuth 2.0) di atas.',
     };
   }
 }
