@@ -28,15 +28,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci || npm install
+        run: npm install
 
       - name: Build Application
         run: npm run build
 
-      - name: Duplicate index.html for SPA fallback routing (404.html)
+      - name: Duplicate index.html for SPA fallback (404.html)
         run: cp dist/index.html dist/404.html
 
       - name: Setup Pages
