@@ -1,0 +1,6 @@
+{
+  "name": "Church Management System",
+  "description": "Sistem Manajemen Gereja (CMS) berbasis Web PWA dengan integrasi Google Sheets realtime, Multi-Role Access (Super Admin, Admin, Jemaat), Dashboard Analytics, dan Modul Gereja Lengkap.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

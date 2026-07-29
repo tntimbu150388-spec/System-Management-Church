@@ -1,0 +1,22 @@
+{
+  "short_name": "CMS Gereja",
+  "name": "Church Management System PWA",
+  "description": "Sistem Informasi & Manajemen Gereja Berbasis PWA dengan Realtime Google Sheets",
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1548625149-fc4a29cf7092?w=192&auto=format&fit=crop&q=80",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1548625149-fc4a29cf7092?w=512&auto=format&fit=crop&q=80",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "display": "standalone",
+  "orientation": "portrait"
+}
