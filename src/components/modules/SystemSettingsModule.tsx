@@ -8,10 +8,13 @@ import {
   Code2,
   Globe,
   FileCode,
+  Flame,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { GlassCard } from '../common/GlassCard';
 import { Modal } from '../common/Modal';
 import { GoogleSheetsDirectIntegration } from '../common/GoogleSheetsDirectIntegration';
+import { FirebaseCustomIntegration } from '../common/FirebaseCustomIntegration';
 import { getCollection, updateItem, syncWithGoogleSheets, getDatabase, saveDatabase } from '../../services/db';
 import { generateGoogleAppsScriptCode } from '../../services/gasExporter';
 import { useNotifications } from '../../context/NotificationContext';
@@ -28,6 +31,7 @@ export const SystemSettingsModule: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'firebase' | 'sheets' | 'gas'>('firebase');
 
   const gasCode = generateGoogleAppsScriptCode();
 
@@ -69,137 +73,183 @@ export const SystemSettingsModule: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Direct Google Sheets API Integration (OAuth 2.0) */}
-      <GoogleSheetsDirectIntegration />
+      {/* Sub-Navigation Tabs for Cloud Integrations */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/60 rounded-2xl border border-slate-200/60 dark:border-slate-800 w-fit">
+        <button
+          onClick={() => setActiveTab('firebase')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            activeTab === 'firebase'
+              ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+          }`}
+        >
+          <Flame className="w-4 h-4" />
+          <span>Firebase Custom</span>
+        </button>
 
-      {/* Top GAS Status Banner */}
-      <GlassCard className="p-6 space-y-4 border-l-4 border-l-blue-600">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-2xl">
-              <Database className="w-6 h-6" />
+        <button
+          onClick={() => setActiveTab('sheets')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            activeTab === 'sheets'
+              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+          }`}
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          <span>Google Sheets API (OAuth)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('gas')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            activeTab === 'gas'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+          }`}
+        >
+          <Code2 className="w-4 h-4" />
+          <span>Google Apps Script (GAS)</span>
+        </button>
+      </div>
+
+      {/* Tab 1: Firebase Custom Configuration */}
+      {activeTab === 'firebase' && <FirebaseCustomIntegration />}
+
+      {/* Tab 2: Direct Google Sheets API Integration (OAuth 2.0) */}
+      {activeTab === 'sheets' && <GoogleSheetsDirectIntegration />}
+
+      {/* Tab 3: Google Apps Script Web App Integration */}
+      {activeTab === 'gas' && (
+        <>
+          <GlassCard className="p-6 space-y-4 border-l-4 border-l-blue-600">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-2xl">
+                  <Database className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
+                    Integrasi Database Google Sheets & Google Apps Script (GAS)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Data disinkronkan secara realtime antara PWA LocalStorage dan Google Sheets cloud.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsCodeModalOpen(true)}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow transition-all flex items-center gap-2"
+              >
+                <Code2 className="w-4 h-4" />
+                <span>Lihat Kode Google Apps Script</span>
+              </button>
             </div>
-            <div>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
-                Integrasi Database Google Sheets & Google Apps Script (GAS)
-              </h3>
-              <p className="text-xs text-slate-500">
-                Data disinkronkan secara realtime antara PWA LocalStorage dan Google Sheets cloud.
-              </p>
+
+            {/* GAS Web App URL Config */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl space-y-3">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Globe className="w-4 h-4 text-blue-500" />
+                <span>Google Apps Script Web App Deployment URL:</span>
+              </label>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="url"
+                  value={gasUrl}
+                  onChange={(e) => setGasUrl(e.target.value)}
+                  placeholder="https://script.google.com/macros/s/.../exec"
+                  className="flex-1 px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                />
+                <button
+                  onClick={handleSaveGasUrl}
+                  className="px-4 py-2.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs rounded-xl hover:opacity-90 transition-opacity"
+                >
+                  Simpan URL
+                </button>
+                <button
+                  onClick={handleManualSync}
+                  disabled={syncing}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all shadow flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                  <span>{syncing ? 'Proses Sync...' : 'Sync Realtime Sekarang'}</span>
+                </button>
+              </div>
             </div>
-          </div>
+          </GlassCard>
 
-          <button
-            onClick={() => setIsCodeModalOpen(true)}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow transition-all flex items-center gap-2"
-          >
-            <Code2 className="w-4 h-4" />
-            <span>Lihat Kode Google Apps Script</span>
-          </button>
-        </div>
+          {/* Deployment Guide Steps */}
+          <GlassCard className="p-6 space-y-4">
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <FileCode className="w-5 h-5 text-indigo-500" />
+              <span>Panduan Deployment Google Apps Script (5 Langkah)</span>
+            </h3>
 
-        {/* GAS Web App URL Config */}
-        <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl space-y-3">
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-            <Globe className="w-4 h-4 text-blue-500" />
-            <span>Google Apps Script Web App Deployment URL:</span>
-          </label>
+            <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-black flex items-center justify-center shrink-0">
+                  1
+                </span>
+                <div>
+                  <p className="font-bold text-slate-900 dark:text-slate-100">Buat Google Spreadsheet Baru</p>
+                  <p className="text-[11px] text-slate-400">
+                    Buka Google Sheets di browser Anda dan buat Spreadsheet kosong. Script akan otomatis membuat 17 Sheet tab.
+                  </p>
+                </div>
+              </div>
 
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="url"
-              value={gasUrl}
-              onChange={(e) => setGasUrl(e.target.value)}
-              placeholder="https://script.google.com/macros/s/.../exec"
-              className="flex-1 px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-            />
-            <button
-              onClick={handleSaveGasUrl}
-              className="px-4 py-2.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs rounded-xl hover:opacity-90 transition-opacity"
-            >
-              Simpan URL
-            </button>
-            <button
-              onClick={handleManualSync}
-              disabled={syncing}
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all shadow flex items-center justify-center gap-1.5 disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              <span>{syncing ? 'Proses Sync...' : 'Sync Realtime Sekarang'}</span>
-            </button>
-          </div>
-        </div>
-      </GlassCard>
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-black flex items-center justify-center shrink-0">
+                  2
+                </span>
+                <div>
+                  <p className="font-bold text-slate-900 dark:text-slate-100">Buka Apps Script Editor</p>
+                  <p className="text-[11px] text-slate-400">
+                    Klik menu <b>Ekstensi</b> &gt; <b>Apps Script</b> pada Google Sheets Anda.
+                  </p>
+                </div>
+              </div>
 
-      {/* Deployment Guide Steps */}
-      <GlassCard className="p-6 space-y-4">
-        <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-          <FileCode className="w-5 h-5 text-indigo-500" />
-          <span>Panduan Deployment Google Apps Script (5 Langkah)</span>
-        </h3>
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-black flex items-center justify-center shrink-0">
+                  3
+                </span>
+                <div>
+                  <p className="font-bold text-slate-900 dark:text-slate-100">Paste Kode Script</p>
+                  <p className="text-[11px] text-slate-400">
+                    Hapus isi file <code>Code.gs</code> bawaan, lalu tempelkan (paste) seluruh kode dari tombol di atas.
+                  </p>
+                </div>
+              </div>
 
-        <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-start gap-3">
-            <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-black flex items-center justify-center shrink-0">
-              1
-            </span>
-            <div>
-              <p className="font-bold text-slate-900 dark:text-slate-100">Buat Google Spreadsheet Baru</p>
-              <p className="text-[11px] text-slate-400">
-                Buka Google Sheets di browser Anda dan buat Spreadsheet kosong. Script akan otomatis membuat 17 Sheet tab.
-              </p>
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-black flex items-center justify-center shrink-0">
+                  4
+                </span>
+                <div>
+                  <p className="font-bold text-slate-900 dark:text-slate-100">Deploy sebagai Web App</p>
+                  <p className="text-[11px] text-slate-400">
+                    Klik <b>Deploy</b> &gt; <b>Deployment Baru</b> &gt; Pilih Jenis <b>Aplikasi Web</b>. Set "Who has access" ke <b>Siapa Saja (Anyone)</b>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-black flex items-center justify-center shrink-0">
+                  5
+                </span>
+                <div>
+                  <p className="font-bold text-slate-900 dark:text-slate-100">Salin Web App URL</p>
+                  <p className="text-[11px] text-slate-400">
+                    Salin URL Web App yang dihasilkan dan tempelkan pada kolom input URL di atas. Klik Simpan & Sync.
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-start gap-3">
-            <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-black flex items-center justify-center shrink-0">
-              2
-            </span>
-            <div>
-              <p className="font-bold text-slate-900 dark:text-slate-100">Buka Apps Script Editor</p>
-              <p className="text-[11px] text-slate-400">
-                Klik menu <b>Ekstensi</b> &gt; <b>Apps Script</b> pada Google Sheets Anda.
-              </p>
-            </div>
-          </div>
-
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-start gap-3">
-            <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-black flex items-center justify-center shrink-0">
-              3
-            </span>
-            <div>
-              <p className="font-bold text-slate-900 dark:text-slate-100">Paste Kode Script</p>
-              <p className="text-[11px] text-slate-400">
-                Hapus isi file <code>Code.gs</code> bawaan, lalu tempelkan (paste) seluruh kode dari tombol di atas.
-              </p>
-            </div>
-          </div>
-
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-start gap-3">
-            <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-black flex items-center justify-center shrink-0">
-              4
-            </span>
-            <div>
-              <p className="font-bold text-slate-900 dark:text-slate-100">Deploy sebagai Web App</p>
-              <p className="text-[11px] text-slate-400">
-                Klik <b>Deploy</b> &gt; <b>Deployment Baru</b> &gt; Pilih Jenis <b>Aplikasi Web</b>. Set "Who has access" ke <b>Siapa Saja (Anyone)</b>.
-              </p>
-            </div>
-          </div>
-
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-start gap-3">
-            <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-black flex items-center justify-center shrink-0">
-              5
-            </span>
-            <div>
-              <p className="font-bold text-slate-900 dark:text-slate-100">Salin Web App URL</p>
-              <p className="text-[11px] text-slate-400">
-                Salin URL Web App yang dihasilkan dan tempelkan pada kolom input URL di atas. Klik Simpan & Sync.
-              </p>
-            </div>
-          </div>
-        </div>
-      </GlassCard>
+          </GlassCard>
+        </>
+      )}
 
       {/* Code Modal */}
       <Modal
@@ -230,3 +280,4 @@ export const SystemSettingsModule: React.FC = () => {
     </div>
   );
 };
+

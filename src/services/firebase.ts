@@ -1,6 +1,7 @@
 /**
  * Firebase Firestore Cloud Realtime Database Integration
  * Enables instant multi-user, multi-device, multi-location synchronization for CMS Gereja.
+ * Supports both platform default Firebase and custom Superadmin Firebase projects.
  */
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -11,19 +12,11 @@ import {
   setDoc,
   getDoc,
   Unsubscribe,
+  Firestore,
 } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
-import { SystemDatabase } from '../types';
+import firebaseConfigDefault from '../../firebase-applet-config.json';
+import { SystemDatabase, FirebaseCustomConfig } from '../types';
 import { getDatabase, saveDatabaseLocalOnly } from './db';
-
-// Initialize Firebase App
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-
-// Initialize Firestore with custom database ID from config
-export const firestore = getFirestore(
-  app,
-  firebaseConfig.firestoreDatabaseId || '(default)'
-);
 
 const DOC_PATH = 'church_system';
 const DOC_ID = 'main_database';
@@ -42,6 +35,63 @@ export function subscribeDatabaseChanges(callback: () => void): () => void {
 
 export function notifySubscribers(): void {
   listeners.forEach((cb) => cb());
+}
+
+/**
+ * Returns active Firebase configuration (Custom Superadmin Firebase or Default Platform Firebase).
+ */
+export function getActiveFirebaseConfig() {
+  try {
+    const db = getDatabase();
+    const custom = db?.PENGATURAN?.FirebaseCustomConfig;
+    if (custom && custom.enabled && custom.apiKey && custom.projectId) {
+      return {
+        apiKey: custom.apiKey.trim(),
+        authDomain: custom.authDomain?.trim() || `${custom.projectId.trim()}.firebaseapp.com`,
+        projectId: custom.projectId.trim(),
+        storageBucket: custom.storageBucket?.trim() || `${custom.projectId.trim()}.appspot.com`,
+        messagingSenderId: custom.messagingSenderId?.trim() || '',
+        appId: custom.appId?.trim() || '',
+        databaseURL: custom.databaseURL?.trim() || '',
+        firestoreDatabaseId: custom.firestoreDatabaseId?.trim() || '(default)',
+        isCustom: true,
+      };
+    }
+  } catch (err) {
+    console.warn('Error reading custom Firebase config:', err);
+  }
+
+  return {
+    ...firebaseConfigDefault,
+    firestoreDatabaseId: firebaseConfigDefault.firestoreDatabaseId || '(default)',
+    isCustom: false,
+  };
+}
+
+/**
+ * Gets active Firestore instance based on active configuration.
+ */
+export function getActiveFirestore(): Firestore {
+  const config = getActiveFirebaseConfig();
+  const appName = config.isCustom ? `custom-church-${config.projectId}` : '[DEFAULT]';
+
+  const existingApp = getApps().find((a) => a.name === appName);
+  const app =
+    existingApp ||
+    initializeApp(
+      {
+        apiKey: config.apiKey,
+        authDomain: config.authDomain,
+        projectId: config.projectId,
+        storageBucket: config.storageBucket,
+        messagingSenderId: config.messagingSenderId,
+        appId: config.appId,
+        databaseURL: config.databaseURL,
+      },
+      appName === '[DEFAULT]' ? undefined : appName
+    );
+
+  return getFirestore(app, config.firestoreDatabaseId || '(default)');
 }
 
 /**
@@ -66,7 +116,8 @@ export function pushToFirestore(data: SystemDatabase): void {
       if (serialized === lastSerializedData) return;
 
       lastSerializedData = serialized;
-      const docRef = doc(firestore, DOC_PATH, DOC_ID);
+      const fsDb = getActiveFirestore();
+      const docRef = doc(fsDb, DOC_PATH, DOC_ID);
       await setDoc(docRef, {
         ...currentData,
         _lastUpdated: new Date().toISOString(),
@@ -82,7 +133,8 @@ export function pushToFirestore(data: SystemDatabase): void {
  * Automatically receives live updates when any admin or user modifies data anywhere.
  */
 export function initFirestoreRealtimeSync(): Unsubscribe {
-  const docRef = doc(firestore, DOC_PATH, DOC_ID);
+  const fsDb = getActiveFirestore();
+  const docRef = doc(fsDb, DOC_PATH, DOC_ID);
 
   // Seed remote Firestore database if it doesn't exist yet
   getDoc(docRef)
@@ -140,4 +192,65 @@ export function initFirestoreRealtimeSync(): Unsubscribe {
 
   return unsubscribe;
 }
+
+/**
+ * Tests connection to a custom Firebase project.
+ */
+export async function testFirebaseConnection(customConfig: FirebaseCustomConfig): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  if (!customConfig.apiKey || !customConfig.projectId) {
+    return {
+      success: false,
+      message: 'API Key dan Project ID wajib diisi untuk menguji koneksi Firebase.',
+    };
+  }
+
+  try {
+    const testAppName = `test-firebase-${Date.now()}`;
+    const testApp = initializeApp(
+      {
+        apiKey: customConfig.apiKey.trim(),
+        authDomain:
+          customConfig.authDomain?.trim() || `${customConfig.projectId.trim()}.firebaseapp.com`,
+        projectId: customConfig.projectId.trim(),
+        storageBucket:
+          customConfig.storageBucket?.trim() || `${customConfig.projectId.trim()}.appspot.com`,
+        messagingSenderId: customConfig.messagingSenderId?.trim() || '',
+        appId: customConfig.appId?.trim() || '',
+        databaseURL: customConfig.databaseURL?.trim() || '',
+      },
+      testAppName
+    );
+
+    const testDb = getFirestore(testApp, customConfig.firestoreDatabaseId?.trim() || '(default)');
+    const testDocRef = doc(testDb, 'church_system', 'connection_test');
+
+    await setDoc(testDocRef, {
+      testAt: new Date().toISOString(),
+      status: 'OK',
+      message: 'Uji koneksi Firebase Custom dari CMS Gereja berhasil!',
+    });
+
+    const snap = await getDoc(testDocRef);
+    if (snap.exists()) {
+      return {
+        success: true,
+        message: `Berhasil terhubung dan menulis data ke Project Firebase "${customConfig.projectId}"!`,
+      };
+    } else {
+      return {
+        success: false,
+        message: 'Gagal verifikasi pembacaan ulang data dari Firestore.',
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.message || 'Gagal terhubung ke Firebase. Periksa API Key dan aturan Firestore.',
+    };
+  }
+}
+
 

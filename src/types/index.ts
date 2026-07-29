@@ -189,6 +189,18 @@ export interface LogAktivitas {
   IPAddress: string;
 }
 
+export interface FirebaseCustomConfig {
+  apiKey?: string;
+  authDomain?: string;
+  projectId?: string;
+  storageBucket?: string;
+  messagingSenderId?: string;
+  appId?: string;
+  databaseURL?: string;
+  firestoreDatabaseId?: string;
+  enabled?: boolean;
+}
+
 export interface Pengaturan {
   NamaGereja: string;
   Logo: string;
@@ -203,6 +215,7 @@ export interface Pengaturan {
   GasWebAppUrl?: string;
   RealtimeSyncInterval?: number; // seconds
   LastSyncTimestamp?: string;
+  FirebaseCustomConfig?: FirebaseCustomConfig;
 }
 
 export interface Kunjungan {
