@@ -14,6 +14,12 @@ import {
   CheckCheck,
   Building2,
   Menu,
+  KeyRound,
+  Eye,
+  EyeOff,
+  X,
+  Lock,
+  AlertCircle,
 } from 'lucide-react';
 import { UserRole } from '../../types';
 
@@ -24,14 +30,28 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, activeTab, setActiveTab }) => {
-  const { user, role, logout, isRealtimeSyncing, syncMessage, triggerManualSync, quickDemoLogin } =
-    useAuth();
+  const {
+    user,
+    role,
+    logout,
+    isRealtimeSyncing,
+    syncMessage,
+    triggerManualSync,
+    switchDemoRoleWithPassword,
+  } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { notifications, unreadCount, markAllAsRead, markAsRead } = useNotifications();
 
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
+
+  // Switch Role Password Modal States
+  const [switchTargetRole, setSwitchTargetRole] = useState<UserRole | null>(null);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const roleLabelMap: Record<UserRole, string> = {
     SUPER_ADMIN: 'Super Admin',
@@ -43,6 +63,44 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, activeTab, setA
     SUPER_ADMIN: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30',
     ADMIN: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30',
     JEMAAT: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+  };
+
+  const isSuperAdminOrAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN';
+
+  const handleOpenSwitchModal = (targetRole: UserRole) => {
+    setSwitchTargetRole(targetRole);
+    setPasswordInput('');
+    setPasswordError('');
+    setShowPassword(false);
+    setShowRoleSwitcher(false);
+  };
+
+  const handleConfirmSwitch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!switchTargetRole) return;
+
+    if (!passwordInput.trim()) {
+      setPasswordError('Silakan masukkan password.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setPasswordError('');
+
+    try {
+      const result = await switchDemoRoleWithPassword(switchTargetRole, passwordInput);
+      if (result.success) {
+        setSwitchTargetRole(null);
+        setPasswordInput('');
+        setActiveTab('dashboard');
+      } else {
+        setPasswordError(result.message);
+      }
+    } catch {
+      setPasswordError('Terjadi kesalahan saat memverifikasi password.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -92,42 +150,41 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, activeTab, setA
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           </button>
 
-          {/* Quick Role Switcher for Testing Demo */}
-          <div className="relative">
-            <button
-              onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
-              className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
-                role ? roleColorMap[role] : 'bg-slate-100 text-slate-700'
-              }`}
-            >
-              <ShieldAlert className="w-3.5 h-3.5" />
-              <span>{role ? roleLabelMap[role] : 'Guest'}</span>
-              <ChevronDown className="w-3 h-3 opacity-60" />
-            </button>
+          {/* Quick Role Switcher for Testing Demo - ONLY AVAILABLE FOR SUPER_ADMIN & ADMIN */}
+          {isSuperAdminOrAdmin && (
+            <div className="relative">
+              <button
+                onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
+                className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                  role ? roleColorMap[role] : 'bg-slate-100 text-slate-700'
+                }`}
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>{role ? roleLabelMap[role] : 'Guest'}</span>
+                <ChevronDown className="w-3 h-3 opacity-60" />
+              </button>
 
-            {showRoleSwitcher && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl py-2 z-50 animate-scale-up">
-                <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Switch Demo Role:
-                </p>
-                {(['SUPER_ADMIN', 'ADMIN', 'JEMAAT'] as UserRole[]).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => {
-                      quickDemoLogin(r);
-                      setShowRoleSwitcher(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 text-xs font-semibold hover:bg-blue-500/10 flex items-center justify-between ${
-                      role === r ? 'text-blue-600 font-bold' : 'text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    {roleLabelMap[r]}
-                    {role === r && <CheckCheck className="w-3.5 h-3.5 text-blue-600" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+              {showRoleSwitcher && (
+                <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl py-2 z-50 animate-scale-up">
+                  <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Switch Demo Role:
+                  </p>
+                  {(['SUPER_ADMIN', 'ADMIN', 'JEMAAT'] as UserRole[]).map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => handleOpenSwitchModal(r)}
+                      className={`w-full text-left px-3 py-2 text-xs font-semibold hover:bg-blue-500/10 flex items-center justify-between ${
+                        role === r ? 'text-blue-600 font-bold' : 'text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <span>{roleLabelMap[r]}</span>
+                      {role === r && <CheckCheck className="w-3.5 h-3.5 text-blue-600" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Theme Toggle */}
           <button
@@ -251,6 +308,115 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, activeTab, setA
           </div>
         </div>
       </div>
+
+      {/* Switch Role Password Modal */}
+      {switchTargetRole && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden animate-scale-up">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-slate-100">
+                    Konfirmasi Akses Switch Role
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Verifikasi password akun target sebelum berpindah
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSwitchTargetRole(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleConfirmSwitch} className="p-5 space-y-4">
+              <div className="p-3 bg-indigo-500/5 border border-indigo-500/15 rounded-2xl flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Target Role
+                  </span>
+                  <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">
+                    {roleLabelMap[switchTargetRole]}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Username Target
+                  </span>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 font-mono">
+                    {switchTargetRole === 'SUPER_ADMIN'
+                      ? 'superadmin'
+                      : switchTargetRole === 'ADMIN'
+                      ? 'admin'
+                      : 'jemaat1'}
+                  </span>
+                </div>
+              </div>
+
+              {passwordError && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-2 text-rose-600 dark:text-rose-400 text-xs font-semibold">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{passwordError}</span>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-slate-400" />
+                  Password Target
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="Masukkan password akun target..."
+                    autoFocus
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                  Password default demo: <code className="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-500/10 px-1.5 py-0.5 rounded">admin123</code>
+                </p>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSwitchTargetRole(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-xl text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-500/20 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSubmitting ? 'Memverifikasi...' : 'Konfirmasi Switch'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

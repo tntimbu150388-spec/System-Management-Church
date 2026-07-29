@@ -52,6 +52,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onGoToRegister, onOpenForg
   };
 
   const handleQuickLogin = async (targetRole: UserRole) => {
+    let demoUsername = 'superadmin';
+    if (targetRole === 'ADMIN') demoUsername = 'admin';
+    if (targetRole === 'JEMAAT') demoUsername = 'jemaat1';
+
+    setUsername(demoUsername);
+    setPassword('admin123');
+
     setLoading(true);
     await quickDemoLogin(targetRole);
     setLoading(false);

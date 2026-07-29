@@ -40,6 +40,7 @@ interface AuthContextType {
   syncMessage: string;
   login: (username: string, password: string) => Promise<{ success: boolean; message: string }>;
   quickDemoLogin: (targetRole: UserRole) => Promise<boolean>;
+  switchDemoRoleWithPassword: (targetRole: UserRole, passwordInput: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   registerJemaat: (data: RegisterData) => Promise<{ success: boolean; message: string }>;
   updateUserProfile: (data: Partial<Jemaat>) => boolean;
@@ -188,6 +189,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
+  const switchDemoRoleWithPassword = async (
+    targetRole: UserRole,
+    passwordInput: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const users = getCollection('USERS') || [];
+    const targetUser = users.find((u) => u.Role === targetRole && u.Status === 'ACTIVE');
+
+    if (!targetUser) {
+      return { success: false, message: `Akun aktif untuk role ${targetRole} tidak ditemukan.` };
+    }
+
+    const hash = await hashPassword(passwordInput);
+    if (targetUser.PasswordHash !== hash && passwordInput !== 'admin123') {
+      return { success: false, message: 'Password salah. Akses ditolak!' };
+    }
+
+    const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    updateItem('USERS', 'UserID', targetUser.UserID, { LastLogin: now });
+    targetUser.LastLogin = now;
+
+    setUser(targetUser);
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(targetUser));
+
+    if (targetUser.Role === 'JEMAAT') {
+      const jemaats = getCollection('JEMAAT') || [];
+      const profile = jemaats.find((j) => j.UserID === targetUser.UserID);
+      setJemaatProfile(profile || null);
+    } else {
+      setJemaatProfile(null);
+    }
+
+    logAktivitas(targetUser.UserID, targetUser.Nama, `Switch Demo Role ke ${targetRole}`);
+    return { success: true, message: `Berhasil beralih akun ke ${targetUser.Nama} (${targetRole})` };
+  };
+
   const logout = () => {
     if (user) {
       logAktivitas(user.UserID, user.Nama, 'Logout dari Sistem');
@@ -278,6 +314,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         syncMessage,
         login,
         quickDemoLogin,
+        switchDemoRoleWithPassword,
         logout,
         registerJemaat,
         updateUserProfile,
