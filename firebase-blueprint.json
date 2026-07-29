@@ -1,0 +1,9 @@
+{
+  "entities": {
+    "church_system": {
+      "title": "Church System Database",
+      "description": "Realtime synchronization store for CMS Gereja data",
+      "type": "document"
+    }
+  }
+}

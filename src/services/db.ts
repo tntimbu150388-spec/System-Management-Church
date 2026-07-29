@@ -575,6 +575,10 @@ export function saveDatabase(data: SystemDatabase): void {
   } catch (e) {
     console.error('Failed to save to localStorage', e);
   }
+  // Sync changes to Firebase Cloud Firestore real-time database
+  import('./firebase').then(({ pushToFirestore }) => {
+    pushToFirestore(data).catch(() => {});
+  }).catch(() => {});
 }
 
 export function resetDatabaseToDefault(): SystemDatabase {

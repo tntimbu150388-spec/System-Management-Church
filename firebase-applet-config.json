@@ -3,6 +3,7 @@
   "appId": "1:617404373951:web:d5f7e4fa5d275d3eecdf0a",
   "apiKey": "AIzaSyA1TWgOe0eUZscs_ZXFNIVNDEgIng0WI_s",
   "authDomain": "gen-lang-client-0425741374.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-churchmanagement-975afc6d-ef81-4a84-9d57-d05933ce7874",
   "storageBucket": "gen-lang-client-0425741374.firebasestorage.app",
   "messagingSenderId": "617404373951",
   "measurementId": "",

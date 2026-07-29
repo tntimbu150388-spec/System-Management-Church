@@ -9,6 +9,7 @@ import {
   syncWithGoogleSheets,
   getDatabase
 } from '../services/db';
+import { initFirestoreRealtimeSync, subscribeDatabaseChanges } from '../services/firebase';
 
 interface RegisterData {
   Nama: string;
@@ -96,9 +97,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     refreshUserData();
 
+    // 1. Initialize Firebase Firestore real-time sync
+    const unsubscribeFirestore = initFirestoreRealtimeSync();
+
+    // 2. Subscribe to real-time database changes from any remote client
+    const unsubscribeLocalSubscriber = subscribeDatabaseChanges(() => {
+      refreshUserData();
+      setSyncMessage('Firebase Realtime Cloud Active (Tersinkronisasi)');
+    });
+
+    setSyncMessage('Firebase Realtime Cloud Active (Terhubung)');
+
     let consecutiveFailures = 0;
 
-    // Periodic background sync
+    // 3. Periodic background sync check
     const interval = setInterval(async () => {
       const db = getDatabase();
       const gasUrl = db.PENGATURAN?.GasWebAppUrl?.trim();
@@ -121,12 +133,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           consecutiveFailures++;
         }
-      } else {
-        setSyncMessage('Database CMS Terhubung (Mode Local & Google Sheets OAuth)');
       }
     }, 20000);
 
-    return () => clearInterval(interval);
+    return () => {
+      unsubscribeFirestore();
+      unsubscribeLocalSubscriber();
+      clearInterval(interval);
+    };
   }, []);
 
   const login = async (username: string, password: string): Promise<{ success: boolean; message: string }> => {
