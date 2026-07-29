@@ -96,17 +96,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     refreshUserData();
 
-    // Setup periodic polling for Google Sheets realtime sync (e.g. every 7s)
+    let consecutiveFailures = 0;
+
+    // Periodic polling for Google Sheets sync (e.g. every 15s)
     const interval = setInterval(async () => {
       const db = getDatabase();
-      if (db.PENGATURAN?.GasWebAppUrl) {
+      const gasUrl = db.PENGATURAN?.GasWebAppUrl?.trim();
+
+      // Only attempt if URL is defined, valid HTTPS, and hasn't repeatedly failed
+      if (gasUrl && gasUrl.startsWith('https://') && consecutiveFailures < 2) {
         setIsRealtimeSyncing(true);
-        const res = await syncWithGoogleSheets(db.PENGATURAN.GasWebAppUrl);
+        const res = await syncWithGoogleSheets(gasUrl);
         setIsRealtimeSyncing(false);
-        setSyncMessage(res.message);
-        refreshUserData();
+
+        if (res.success) {
+          consecutiveFailures = 0;
+          setSyncMessage(res.message);
+          refreshUserData();
+        } else {
+          consecutiveFailures++;
+          if (consecutiveFailures >= 2) {
+            setSyncMessage('Sync GAS dihentikan sementara (Endpoint tidak merespons).');
+          } else {
+            setSyncMessage(res.message);
+          }
+        }
       }
-    }, 8000);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, []);

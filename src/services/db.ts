@@ -664,16 +664,20 @@ export function deleteItem<T extends keyof SystemDatabase>(
 // Realtime Google Sheets Sync engine interface
 export async function syncWithGoogleSheets(gasUrl?: string): Promise<{ success: boolean; message: string }> {
   const db = getDatabase();
-  const targetUrl = gasUrl || db.PENGATURAN.GasWebAppUrl;
+  const rawUrl = gasUrl !== undefined ? gasUrl : db.PENGATURAN.GasWebAppUrl;
+  const targetUrl = (rawUrl || '').trim();
 
-  if (!targetUrl) {
+  if (!targetUrl || !targetUrl.startsWith('https://')) {
     return {
       success: true,
-      message: 'Mode Local Direct Sheets - Data tersinkronisasi di memori lokal PWA browser.',
+      message: 'Mode Local Direct - Data tersinkronisasi di memori lokal PWA.',
     };
   }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
+
     const response = await fetch(targetUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -681,22 +685,25 @@ export async function syncWithGoogleSheets(gasUrl?: string): Promise<{ success: 
         action: 'SYNC_ALL',
         data: db,
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (response.ok) {
       const resData = await response.json();
-      if (resData.database) {
+      if (resData && resData.database) {
         saveDatabase(resData.database);
       }
       return { success: true, message: 'Berhasil sinkronisasi dua arah dengan Google Sheets!' };
     } else {
-      return { success: false, message: `Status respon server: ${response.statusText}` };
+      return { success: false, message: `Status respon server: ${response.status} ${response.statusText}` };
     }
   } catch (err: any) {
-    console.warn('Realtime GAS sync error', err);
+    // Return graceful failure message without throwing noisy console warnings
     return {
       success: false,
-      message: 'Gagal menghubungi Google Apps Script Endpoint. Memakai local cache.',
+      message: 'Google Apps Script Endpoint tidak merespons (Check URL/CORS).',
     };
   }
 }
