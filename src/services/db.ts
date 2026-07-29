@@ -568,17 +568,23 @@ export function getDatabase(): SystemDatabase {
   return dbInstance!;
 }
 
-export function saveDatabase(data: SystemDatabase): void {
+export function saveDatabase(data: SystemDatabase, skipCloudSync = false): void {
   dbInstance = data;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (e) {
     console.error('Failed to save to localStorage', e);
   }
-  // Sync changes to Firebase Cloud Firestore real-time database
-  import('./firebase').then(({ pushToFirestore }) => {
-    pushToFirestore(data).catch(() => {});
-  }).catch(() => {});
+  if (!skipCloudSync) {
+    // Sync changes to Firebase Cloud Firestore real-time database
+    import('./firebase').then(({ pushToFirestore }) => {
+      pushToFirestore(data);
+    }).catch(() => {});
+  }
+}
+
+export function saveDatabaseLocalOnly(data: SystemDatabase): void {
+  saveDatabase(data, true);
 }
 
 export function resetDatabaseToDefault(): SystemDatabase {
@@ -722,8 +728,16 @@ export async function syncWithGoogleSheets(gasUrl?: string): Promise<{ success: 
         }
         return { success: true, message: 'Berhasil tersinkronisasi dengan Google Apps Script!' };
       }
-    } catch (err: any) {
-      console.warn('GAS fetch warning:', err);
+      return {
+        success: false,
+        message: `HTTP Status: ${response.status}`,
+      };
+    } catch {
+      // Quiet fail if web app URL is offline or unconfigured
+      return {
+        success: false,
+        message: 'Endpoint GAS tidak merespons.',
+      };
     }
   }
 

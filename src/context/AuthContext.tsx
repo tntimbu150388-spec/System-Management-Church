@@ -108,38 +108,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setSyncMessage('Firebase Realtime Cloud Active (Terhubung)');
 
-    let consecutiveFailures = 0;
-
-    // 3. Periodic background sync check
-    const interval = setInterval(async () => {
-      const db = getDatabase();
-      const gasUrl = db.PENGATURAN?.GasWebAppUrl?.trim();
-
-      const isValidGasUrl =
-        gasUrl &&
-        gasUrl.startsWith('https://script.google.com/macros/s/') &&
-        !gasUrl.includes('...') &&
-        gasUrl.endsWith('/exec');
-
-      if (isValidGasUrl && consecutiveFailures < 2) {
-        setIsRealtimeSyncing(true);
-        const res = await syncWithGoogleSheets(gasUrl);
-        setIsRealtimeSyncing(false);
-
-        if (res.success) {
-          consecutiveFailures = 0;
-          setSyncMessage(res.message);
-          refreshUserData();
-        } else {
-          consecutiveFailures++;
-        }
-      }
-    }, 20000);
-
     return () => {
       unsubscribeFirestore();
       unsubscribeLocalSubscriber();
-      clearInterval(interval);
     };
   }, []);
 
